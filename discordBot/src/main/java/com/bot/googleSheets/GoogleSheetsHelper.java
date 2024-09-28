@@ -1,4 +1,4 @@
-package com.bot;
+package com.bot.googleSheets;
 
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
@@ -16,37 +16,35 @@ import java.util.Collections;
 import java.util.List;
 import java.util.logging.Logger;
 
-public class GoogleSheetsHelper {
+public class GoogleSheetsHelper implements GoogleSheetsService {
   private static final String SPREADSHEET_ID = "1CBFNGCWr54M_3_TBOQdltk0L9jB4H5OjKI9wRt2Xgy0";
   private static final String SHEET = "'2024년'!";
   private static final String KEY_PATH = "/google-key.json";
   private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
   private static final Logger logger = Logger.getLogger(GoogleSheetsHelper.class.getName());
 
-  private Sheets sheetsService;
-
+  private final Sheets sheetsService;
 
   public GoogleSheetsHelper() throws IOException {
-    try {
+    this.sheetsService = initializeSheetsService();
+    logger.info("구글시트 클라이언트 초기화 완료");
+  }
+
+  private Sheets initializeSheetsService() throws IOException {
+    try (InputStream inputStream = GoogleSheetsHelper.class.getResourceAsStream(KEY_PATH)) {
       //자격 증명 파일을 사용하여 Google Sheets API 클라이언트 초기화
-      InputStream inputStream = GoogleSheetsHelper.class.getResourceAsStream(KEY_PATH);
       if (inputStream == null) {
         throw new FileNotFoundException("Resource not found: " + KEY_PATH);
       }
       GoogleCredentials credentials = GoogleCredentials.fromStream(inputStream)
           .createScoped(Collections.singletonList("https://www.googleapis.com/auth/spreadsheets"));
-      this.sheetsService = new Builder(new NetHttpTransport(), JSON_FACTORY,
-          new HttpCredentialsAdapter(credentials))
+      return new Builder(new NetHttpTransport(), JSON_FACTORY, new HttpCredentialsAdapter(credentials))
           .setApplicationName("출석체크봇")
           .build();
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-      logger.severe("google-key.json 파일 경로가 올바르지 않음\n" + e.getMessage());
-      throw new RuntimeException(e);
     }
-    logger.info("구글시트 클라이언트 초기화 완료");
   }
 
+  @Override
   public int findRowByDate(String targetDate) throws IOException {
     logger.info("findRowByDate 진입");
     logger.info("targetDate: " + targetDate);
@@ -76,6 +74,7 @@ public class GoogleSheetsHelper {
     return -1;
   }
 
+  @Override
   public String findColumnByNickname(String nickname) throws IOException {
     logger.info("findColumnByNickname 메서드 진입");
     logger.info("nickname: " + nickname);
@@ -101,6 +100,7 @@ public class GoogleSheetsHelper {
     return null;
   }
 
+  @Override
   public void write(String range, boolean value) throws IOException {
     List<List<Object>> values = Arrays.asList(Arrays.asList(value));
     ValueRange body = new ValueRange().setValues(values);
@@ -111,5 +111,4 @@ public class GoogleSheetsHelper {
         .execute();
     logger.info("출석부 작성 => 셀: "+range+", 값: "+value);
   }
-
 }
